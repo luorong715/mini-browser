@@ -9,6 +9,7 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -17,8 +18,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
-import com.example.minibrowser.jsapi.MiniBrowserJsApi
 import com.example.minibrowser.data.HistoryEntity
+import com.example.minibrowser.jsapi.MiniBrowserJsApi
 
 @Composable
 fun ComposeWebView(
@@ -60,13 +61,14 @@ fun ComposeWebView(
                     useWideViewPort = true
                     loadWithOverviewMode = true
                 }
-                // ✅ 在这里插入 JSAPI 注册（紧跟 settings 之后）
+
+                // ✅ JSAPI 注册
                 addJavascriptInterface(
                     MiniBrowserJsApi(historyProvider),
                     "MiniBrowser"
                 )
 
-                // ✅ 补全 WebChromeClient：桥接 console.log + 监听加载进度
+                // ✅ WebChromeClient：桥接 console.log + 监听加载进度
                 webChromeClient = object : WebChromeClient() {
                     override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
                         consoleMessage?.let {
@@ -77,7 +79,6 @@ fun ComposeWebView(
 
                     override fun onProgressChanged(view: WebView?, newProgress: Int) {
                         super.onProgressChanged(view, newProgress)
-                        // 选择 30% 作为观察采样点，避免日志刷屏
                         if (newProgress == 30) {
                             view?.evaluateJavascript(
                                 "console.log('[Inject-Step1] onProgressChanged 30%: DOM正在构建，可注入CSS/全局变量');",
@@ -88,16 +89,44 @@ fun ComposeWebView(
                 }
 
                 webViewClient = object : WebViewClient() {
+                    // ✅ 增强版第三方 App 跳转支持
                     override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-                        val targetUrl = request.url.toString()
-                        if (targetUrl.startsWith("http://") || targetUrl.startsWith("https://")) {
+                        val uri = request.url
+                        val scheme = uri.scheme ?: return false
+
+                        // 1. HTTP/HTTPS 正常交给 WebView 加载
+                        if (scheme.equals("http", true) || scheme.equals("https", true)) {
                             return false
                         }
+
+                        // 2. 非 HTTP 协议（第三方 App Scheme / mailto / tel 等）交由系统处理
                         try {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(targetUrl))
-                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            view.context.startActivity(intent)
-                        } catch (_: Exception) {}
+                            val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                            }
+
+                            // 检查是否有应用能处理该 Scheme，避免 ActivityNotFoundException
+                            if (intent.resolveActivity(view.context.packageManager) != null) {
+                                view.context.startActivity(intent)
+                            } else {
+                                // 未安装对应 App 时的降级提示
+                                Toast.makeText(
+                                    view.context,
+                                    "未检测到相关应用，请安装后重试",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.e("WebView_Scheme", "第三方App跳转失败: $uri", e)
+                            Toast.makeText(
+                                view.context,
+                                "无法打开该链接: ${e.message}",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+
+                        // 3. 阻止 WebView 继续加载该非 HTTP URL
                         return true
                     }
 
@@ -105,7 +134,6 @@ fun ComposeWebView(
                         super.onPageStarted(view, pageUrl, favicon)
                         onPageStarted()
 
-                        // ✅ 1.4 第一步：注入观察 - 页面开始加载，DOM 尚未就绪
                         view?.evaluateJavascript(
                             "console.log('[Inject-Step1] onPageStarted: 此时DOM不可用，适合注入底层通信桥');",
                             null
@@ -120,14 +148,12 @@ fun ComposeWebView(
                         }
                         view?.let { onNavigationChanged(it.canGoBack(), it.canGoForward()) }
 
-                        // ✅ 1.4 第一步：注入观察 - 主文档加载完成，DOM 树完整可操作
                         // ⚠️ [临时调试代码 - 已验证通过]
                         // 用途：验证 window.MiniBrowser.getHistory() JSAPI 是否正常返回数据
                         // 状态：2026-07-21 验证成功，生产环境禁用
                         // 如需再次验证，取消下方注释即可
                         /*view?.evaluateJavascript(
                             """
-
                            (function() {
                                 try {
                                     if (typeof window.MiniBrowser !== 'undefined') {
@@ -143,7 +169,8 @@ fun ComposeWebView(
                             document.title = '[端上注入验证] ' + document.title;
                             """.trimIndent(),
                             null
-                        ) */
+                        )*/
+
                         view?.evaluateJavascript(
                             "document.title = '[端上注入验证] ' + document.title;",
                             null
@@ -167,7 +194,7 @@ fun ComposeWebView(
 }
 
 /**
- * WebViewNavigator 内部实现（保持不变）
+ * WebViewNavigator 内部实现
  */
 class WebViewNavigatorImpl : WebViewNavigator {
     private var webView: WebView? = null

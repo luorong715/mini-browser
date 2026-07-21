@@ -10,7 +10,7 @@ import com.example.minibrowser.data.HistoryRepository
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
-
+import kotlinx.coroutines.flow.first
 
 // ⚠️ 改为继承 AndroidViewModel 以获取 Application Context
 class BrowserViewModel(application: Application) : AndroidViewModel(application) {
@@ -23,7 +23,20 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     // ⬇️ Step B 核心：持有 Repository 实例
     //private val historyRepository = HistoryRepository(application)
      val historyRepository = HistoryRepository(application)
-
+    // ✅ 新增：初始化时从 DataStore 异步读取已保存的皮肤
+    init {
+        viewModelScope.launch {
+            val savedSkin = SkinPreferences.getSkinFlow(application).first()
+            uiState = uiState.copy(currentSkin = savedSkin)
+        }
+    }
+    // ✅ 新增：切换皮肤并更新 UI 状态
+    fun onSkinChanged(skin: SkinType) {
+        uiState = uiState.copy(currentSkin = skin)
+        viewModelScope.launch {
+            SkinPreferences.saveSkin(getApplication(), skin)
+        }
+    }
     fun onUrlInputChanged(newInput: String) {
         uiState = uiState.copy(inputUrl = newInput)
     }

@@ -2,7 +2,52 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET" />
-
+    <!-- 声明需要查询的第三方 App Scheme ：这里可以优化掉-->
+    <queries>
+        <!-- 微信 -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="weixin" />
+        </intent>
+        <!-- 支付宝 -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="alipays" />
+        </intent>
+        <!-- 淘宝 -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="tbopen" />
+        </intent>
+        <!-- 京东 -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="openjd" />
+        </intent>
+        <!-- 拼多多 -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="pinduoduo" />
+        </intent>
+        <!-- 抖音 -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="snssdk1128" />
+        </intent>
+        <!-- 系统基础协议（邮件/电话/短信） -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="mailto" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="tel" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="sms" />
+        </intent>
+    </queries>
     <application
         android:usesCleartextTraffic="true"
         android:allowBackup="true"
