@@ -22,30 +22,27 @@ fun ComposeWebView(
     navigator: WebViewNavigator,
     modifier: Modifier = Modifier,
     onPageStarted: () -> Unit = {},
-    onPageFinished: () -> Unit = {},
+    // ⬇️ Step B 核心变更：签名改为携带 url 和 title
+    onPageFinished: (url: String, title: String) -> Unit = { _, _ -> },
     onNavigationChanged: (canGoBack: Boolean, canGoForward: Boolean) -> Unit = { _, _ -> }
 ) {
-    // 安全持有 WebView 引用，仅在组合树内有效
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
 
-    // ⚠️ 修复白屏：监听 url 参数变化，处理首次加载及外部状态同步
+    // 兜底首次加载与状态恢复
     LaunchedEffect(url) {
         webViewRef?.let { wv ->
-            // 只有当 WebView 当前实际加载的 URL 与传入的 url 不一致时才加载
-            // 这既保证了 App 启动时的首次加载，又避免了与 Navigator 的手动加载冲突
             if (wv.url != url) {
                 wv.loadUrl(url)
             }
         }
     }
 
-    // 绑定 Navigator 的逻辑保持不变，可以合并或单独写一个 LaunchedEffect
+    // Navigator 绑定
     LaunchedEffect(webViewRef) {
         webViewRef?.let { wv ->
             (navigator as? WebViewNavigatorImpl)?.bind(wv)
         }
     }
-
 
     AndroidView(
         modifier = modifier,
@@ -81,31 +78,34 @@ fun ComposeWebView(
                         onPageStarted()
                     }
 
+                    // ⬇️ Step B 核心变更：提取标题并回传
                     override fun onPageFinished(view: WebView?, pageUrl: String?) {
                         super.onPageFinished(view, pageUrl)
-                        onPageFinished()
+                        val title = view?.title ?: ""
+                        if (!pageUrl.isNullOrBlank()) {
+                            onPageFinished(pageUrl, title)
+                        }
                         view?.let { onNavigationChanged(it.canGoBack(), it.canGoForward()) }
                     }
                 }
 
-                // 记录引用，触发 LaunchedEffect
                 webViewRef = this
             }
         },
-        update = { /* 不再处理 url 加载，全部交给 Navigator */ },
+        update = { _ -> },
         onRelease = { webView ->
             webView.stopLoading()
             webView.clearCache(true)
             webView.removeAllViews()
             webView.destroy()
+            (navigator as? WebViewNavigatorImpl)?.unbind()
             webViewRef = null
         }
     )
 }
 
 /**
- * WebViewNavigator 的内部实现类
- * 持有 WebView 引用，生命周期与 ComposeWebView 绑定
+ * WebViewNavigator 内部实现（保持不变）
  */
 class WebViewNavigatorImpl : WebViewNavigator {
     private var webView: WebView? = null
