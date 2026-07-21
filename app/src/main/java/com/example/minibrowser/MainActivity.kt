@@ -19,7 +19,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             // ⚠️ 必须在这里调用 BrowserScreen
-            BrowserScreen()
+            //BrowserScreen()
+            MainScreen()
         }
     }
 }

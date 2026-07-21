@@ -8,6 +8,9 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.minibrowser.data.HistoryRepository
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
+
 
 // ⚠️ 改为继承 AndroidViewModel 以获取 Application Context
 class BrowserViewModel(application: Application) : AndroidViewModel(application) {
@@ -18,7 +21,8 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     val navigator = WebViewNavigatorImpl()
 
     // ⬇️ Step B 核心：持有 Repository 实例
-    private val historyRepository = HistoryRepository(application)
+    //private val historyRepository = HistoryRepository(application)
+     val historyRepository = HistoryRepository(application)
 
     fun onUrlInputChanged(newInput: String) {
         uiState = uiState.copy(inputUrl = newInput)

@@ -16,6 +16,8 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberSwipeToDismissBoxState
@@ -26,15 +28,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryScreen(
-    viewModel: HistoryViewModel,
+    viewModel: HistoryViewModel = viewModel(), // ✅ Step D: 使用 hiltViewModel 绑定独立作用域
+    onNavigateToUrl: (String) -> Unit, // ✅ Step D: 新增跳转回调，替代原有的 onSelectUrl
     modifier: Modifier = Modifier
 ) {
     val historyList by viewModel.historyList.collectAsState(initial = emptyList())
@@ -64,16 +67,10 @@ fun HistoryScreen(
                 items(historyList, key = { it.id }) { item ->
                     val dismissState = rememberSwipeToDismissBoxState()
 
-
                     SwipeToDismissBox(
                         state = dismissState,
-
-                        // 禁止从左向右滑动
                         enableDismissFromStartToEnd = false,
-
-                        // 允许从右向左滑动
                         enableDismissFromEndToStart = true,
-
                         backgroundContent = {
                             Box(
                                 modifier = Modifier
@@ -87,7 +84,6 @@ fun HistoryScreen(
                                 )
                             }
                         },
-
                         onDismiss = { direction ->
                             if (direction == SwipeToDismissBoxValue.EndToStart) {
                                 viewModel.onDelete(item.id)
@@ -98,7 +94,8 @@ fun HistoryScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
-                                    viewModel.onSelectUrl(item.url)
+                                    // ✅ Step D: 点击时触发外部导航回调，不再修改 ViewModel 内部状态
+                                    onNavigateToUrl(item.url)
                                 }
                                 .padding(vertical = 12.dp)
                         ) {
@@ -127,7 +124,6 @@ fun HistoryScreen(
                             )
                         }
                     }
-
                 }
             }
         }
